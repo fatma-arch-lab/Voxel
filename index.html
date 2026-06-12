@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Qal'a — A Voxel Oman</title>
+<style>
+  :root{
+    --sand:#e8d5a8; --clay:#a9683f; --ink:#241a10; --plaster:#f6efe2; --palm:#3f7a3a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:"Trebuchet MS",system-ui,sans-serif;}
+  #game{position:fixed;inset:0;display:block;}
+  /* ---------- HUD ---------- */
+  #crosshair{position:fixed;left:50%;top:50%;width:18px;height:18px;transform:translate(-50%,-50%);pointer-events:none;opacity:.9}
+  #crosshair:before,#crosshair:after{content:"";position:absolute;background:#fff;mix-blend-mode:difference}
+  #crosshair:before{left:8px;top:0;width:2px;height:18px}
+  #crosshair:after{left:0;top:8px;width:18px;height:2px}
+  #hotbar{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);display:flex;gap:5px;padding:6px;background:rgba(20,12,4,.55);border:2px solid rgba(246,239,226,.35);border-radius:10px;backdrop-filter:blur(2px)}
+  .slot{width:46px;height:46px;border:2px solid rgba(246,239,226,.25);border-radius:6px;position:relative;background:rgba(0,0,0,.25)}
+  .slot canvas{width:100%;height:100%;image-rendering:pixelated;border-radius:4px}
+  .slot .key{position:absolute;left:3px;top:1px;font-size:10px;color:#f6efe2;text-shadow:0 1px 2px #000}
+  .slot.sel{border-color:#ffd684;box-shadow:0 0 10px rgba(255,214,132,.7)}
+  #blockname{position:fixed;left:50%;bottom:104px;transform:translateX(-50%);color:#f6efe2;font-size:14px;letter-spacing:.04em;text-shadow:0 1px 3px #000;opacity:0;transition:opacity .4s;pointer-events:none}
+  #topbar{position:fixed;top:10px;left:12px;color:#f6efe2;text-shadow:0 1px 3px #000;font-size:12px;line-height:1.5;pointer-events:none}
+  #topbar b{color:#ffd684}
+  /* ---------- Menu ---------- */
+  #menu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 30%, rgba(64,36,12,.88), rgba(12,7,3,.96));z-index:30}
+  #menu .panel{max-width:560px;width:92%;text-align:center;color:var(--plaster);padding:34px 26px;border:2px solid rgba(246,239,226,.3);border-radius:14px;background:rgba(24,14,5,.6)}
+  #menu h1{font-size:clamp(34px,7vw,56px);letter-spacing:.06em;color:#ffd684;text-shadow:0 3px 0 #7a4a16,0 6px 18px #000}
+  #menu h1 span{display:block;font-size:.42em;color:var(--plaster);letter-spacing:.35em;margin-top:4px}
+  #menu p.sub{margin:14px 0 4px;font-size:14px;opacity:.9}
+  #menu .controls{display:inline-block;text-align:left;margin:16px auto 6px;font-size:13px;line-height:1.9;opacity:.92}
+  #menu kbd{background:#3a2410;border:1px solid #8a5a2a;border-bottom-width:3px;border-radius:5px;padding:1px 7px;font-size:12px;color:#ffd684}
+  #playBtn{margin-top:18px;font-size:18px;letter-spacing:.12em;padding:13px 44px;border-radius:10px;border:2px solid #ffd684;background:linear-gradient(#c07a2e,#8a4f16);color:#fff;cursor:pointer;text-shadow:0 1px 2px #000}
+  #playBtn:active{transform:translateY(2px)}
+  #cineBtn{margin:12px auto 0;display:block;font-size:13px;letter-spacing:.08em;padding:9px 22px;border-radius:8px;border:1.5px solid rgba(246,239,226,.5);background:rgba(24,14,5,.5);color:#f6efe2;cursor:pointer}
+  #cineBtn:active{transform:translateY(1px)}
+  #recdot{display:none;position:fixed;top:12px;right:14px;z-index:25;align-items:center;gap:7px;color:#fff;font-size:12px;letter-spacing:.1em;text-shadow:0 1px 3px #000}
+  #recdot i{width:11px;height:11px;border-radius:50%;background:#e33;animation:blink 1s infinite}
+  @keyframes blink{50%{opacity:.25}}
+  body.recording #recdot{display:flex}
+  #btnCine{right:96px;bottom:170px}
+  #btnFly{right:172px;bottom:170px}
+  #btnDown{right:172px;bottom:96px}
+  .selRow{display:flex;align-items:center;justify-content:center;gap:10px;margin:12px 0 0;font-size:11px;letter-spacing:.14em;color:#f6efe2}
+  .pills{display:flex;gap:6px}
+  .pills button{padding:7px 14px;border-radius:999px;border:1.5px solid rgba(246,239,226,.4);background:rgba(24,14,5,.5);color:#f6efe2;font-size:12px;letter-spacing:.05em;cursor:pointer}
+  .pills button.on{background:#c07a2e;border-color:#ffd684;color:#fff}
+  #hearts{display:none;position:fixed;left:50%;bottom:74px;transform:translateX(-50%);gap:2px;font-size:16px;color:#ff4d5e;text-shadow:0 1px 3px #000;pointer-events:none;z-index:15}
+  #hurt{position:fixed;inset:0;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center, transparent 42%, rgba(200,20,20,.55));z-index:18}
+  #deathScreen{display:none;position:fixed;inset:0;z-index:40;align-items:center;justify-content:center;background:rgba(60,5,5,.8)}
+  #deathScreen .dpanel{text-align:center;color:#f6efe2;padding:0 20px}
+  #deathScreen h2{font-size:clamp(28px,6vw,46px);color:#ff6b6b;letter-spacing:.1em;text-shadow:0 3px 0 #500}
+  #deathScreen p{margin:10px 0 22px;font-size:14px;opacity:.85}
+  #respawnBtn{font-size:15px;letter-spacing:.1em;padding:12px 34px;border-radius:10px;border:2px solid #ffd684;background:linear-gradient(#c07a2e,#8a4f16);color:#fff;cursor:pointer}
+  #loadnote{margin-top:10px;font-size:12px;opacity:.7}
+  /* ---------- Touch controls ---------- */
+  .touchUI{display:none}
+  body.touch .touchUI{display:block}
+  #joy{position:fixed;left:18px;bottom:84px;width:120px;height:120px;border-radius:50%;border:2px solid rgba(246,239,226,.4);background:rgba(0,0,0,.2);z-index:20}
+  #joyKnob{position:absolute;left:50%;top:50%;width:48px;height:48px;border-radius:50%;background:rgba(246,239,226,.5);transform:translate(-50%,-50%)}
+  .tbtn{position:fixed;z-index:20;width:62px;height:62px;border-radius:50%;border:2px solid rgba(246,239,226,.5);background:rgba(20,12,4,.5);color:#f6efe2;font-size:24px;display:flex;align-items:center;justify-content:center;user-select:none}
+  #btnJump{right:20px;bottom:170px}
+  #btnMine{right:96px;bottom:96px}
+  #btnPlace{right:20px;bottom:96px}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="crosshair"></div>
+<div id="topbar"></div>
+<div id="blockname"></div>
+<div id="hotbar"></div>
+<div id="hearts"></div>
+<div id="hurt"></div>
+<div id="deathScreen">
+  <div class="dpanel">
+    <h2>YOU WERE DEFEATED</h2>
+    <p id="deathCause"></p>
+    <button id="respawnBtn">RESPAWN BY THE FORT ROAD</button>
+  </div>
+</div>
+
+<div class="touchUI" id="joy"><div id="joyKnob"></div></div>
+<div class="touchUI tbtn" id="btnJump">⤒</div>
+<div class="touchUI tbtn" id="btnMine">⛏</div>
+<div class="touchUI tbtn" id="btnPlace">▦</div>
+
+<div class="touchUI tbtn" id="btnCine">🎥</div>
+<div class="touchUI tbtn" id="btnFly">✈</div>
+<div class="touchUI tbtn" id="btnDown">⤓</div>
+<div id="recdot"><i></i>REC</div>
+
+<div id="menu">
+  <div class="panel">
+    <h1>قلعة QAL'A<span>A VOXEL OMAN</span></h1>
+    <p class="sub">Dunes, jebel, a palm oasis, a sea on the eastern coast, a Nizwa-style fort — and five dragons. Choose your way to play: in Survival, the dragons hunt you and Sand Ghouls rise at night.</p>
+    <div class="selRow">MODE
+      <div class="pills" id="modePills">
+        <button data-m="0" class="on">☮ Peaceful</button>
+        <button data-m="1">✏ Creative</button>
+        <button data-m="2">⚔ Survival</button>
+      </div>
+    </div>
+    <div class="selRow" id="diffRow" style="display:none">DIFFICULTY
+      <div class="pills" id="diffPills">
+        <button data-d="0">Easy</button>
+        <button data-d="1" class="on">Medium</button>
+        <button data-d="2">Hard</button>
+      </div>
+    </div>
+    <div class="controls" id="ctlDesktop">
+      <kbd>W A S D</kbd> move &nbsp; <kbd>Space</kbd> jump &nbsp; <kbd>Shift</kbd> sprint<br>
+      <kbd>Mouse</kbd> look &nbsp; <kbd>LMB</kbd> break &nbsp; <kbd>RMB</kbd> place<br>
+      <kbd>1–9</kbd> / <kbd>wheel</kbd> select block &nbsp; <kbd>F</kbd> fly (Creative only)<br>
+      <kbd>LMB</kbd> also punches dragons &amp; ghouls in Survival<br>
+      <kbd>R</kbd> record gameplay &nbsp; <kbd>V</kbd> cinematic flyby &nbsp; <kbd>Esc</kbd> menu
+    </div>
+    <div class="controls" id="ctlTouch" style="display:none">
+      Left stick: move · Drag right side: look<br>
+      ⛏ break · ▦ place · ⤒ jump · tap a hotbar slot to select
+    </div>
+    <br>
+    <button id="playBtn">ENTER THE DESERT</button>
+    <button id="cineBtn">🎥 Record a cinematic flyby clip</button>
+    <div id="loadnote">Generating world…</div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+/* =====================================================================
+   QAL'A — a voxel sandbox set in an Omani desert.
+   Original textures & structures (procedural). Single-file, Three.js r128.
+   ===================================================================== */
+
+// ---------------------------- Constants ------------------------------
+const SX = 128, SY = 48, SZ = 128;      // world size in blocks
+const CS = 16;                          // chunk size (x/z)
+const CX = SX / CS, CZ = SZ / CS;
+const WATER_Y = 7;
+
+const AIR=0, SAND=1, SANDSTONE=2, MUDBRICK=3, STONE=4, DIRT=5, GRASS=6,
+      TRUNK=7, LEAVES=8, WATER=9, PLASTER=10, PLANKS=11,
+      RED=12, WHITE=13, GREEN=14, ICE=15, POOP=16;
+
+// atlas tile per block face: [ -x, +x, -y(bottom), +y(top), -z, +z ]
+const TILES = {
+  [SAND]:      [0,0,0,0,0,0],
+  [SANDSTONE]: [1,1,1,1,1,1],
+  [MUDBRICK]:  [2,2,2,2,2,2],
+  [STONE]:     [3,3,3,3,3,3],
+  [DIRT]:      [4,4,4,4,4,4],
+  [GRASS]:     [6,6,4,5,6,6],
+  [TRUNK]:     [7,7,8,8,7,7],
+  [LEAVES]:    [9,9,9,9,9,9],
+  [WATER]:     [10,10,10,10,10,10],
+  [PLASTER]:   [11,11,11,11,11,11],
+  [PLANKS]:    [12,12,12,12,12,12],
+  [RED]:       [13,13,13,13,13,13],
+  [WHITE]:     [14,14,14,14,14,14],
+  [GREEN]:     [15,15,15,15,15,15],
+  [ICE]:       [16,16,16,16,16,16],
+  [POOP]:      [17,17,17,17,17,17],
+};
+const NAMES = {
+  [SAND]:"Desert Sand · رمل", [SANDSTONE]:"Sandstone · حجر رملي",
+  [MUDBRICK]:"Sarooj Mudbrick · طوب", [STONE]:"Jebel Stone · صخر",
+  [DIRT]:"Oasis Soil", [GRASS]:"Oasis Grass", [TRUNK]:"Palm Trunk · نخلة",
+  [LEAVES]:"Palm Fronds", [WATER]:"Falaj Water", [PLASTER]:"Gypsum Plaster · جص",
+  [PLANKS]:"Palm Planks", [RED]:"Red Banner", [WHITE]:"White Banner", [GREEN]:"Green Banner",
+  [ICE]:"Dragon Ice · ثلج", [POOP]:"Dragon Poop 💩",
+};
+const HOTBAR = [SAND, SANDSTONE, MUDBRICK, PLASTER, STONE, TRUNK, LEAVES, PLANKS, RED, ICE, POOP];
+
+const isSolid = b => b !== AIR && b !== WATER;
+
+// ---------------------------- World data -----------------------------
+const world = new Uint8Array(SX * SY * SZ);
+const idx = (x,y,z) => (y * SZ + z) * SX + x;
+function getBlock(x,y,z){
+  if (x<0||y<0||z<0||x>=SX||y>=SY||z>=SZ) return AIR;
+  return world[idx(x,y,z)];
+}
+function setRaw(x,y,z,b){
+  if (x<0||y<0||z<0||x>=SX||y>=SY||z>=SZ) return;
+  world[idx(x,y,z)] = b;
+}
+
+// ---------------------------- Noise ----------------------------------
+function hash2(x,z){
+  let n = (x*374761393 + z*668265263) | 0;
+  n = Math.imul(n ^ (n>>>13), 1274126177);
+  return ((n ^ (n>>>16)) >>> 0) / 4294967295;
+}
+function vnoise(x,z){
+  const xi=Math.floor(x), zi=Math.floor(z);
+  const xf=x-xi, zf=z-zi;
+  const u=xf*xf*(3-2*xf), v=zf*zf*(3-2*zf);
+  const a=hash2(xi,zi), b=hash2(xi+1,zi), c=hash2(xi,zi+1), d=hash2(xi+1,zi+1);
+  return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v;
+}
+function fbm(x,z){
+  let t=0, amp=0.5, f=1;
+  for(let i=0;i<4;i++){ t += vnoise(x*f, z*f)*amp; f*=2; amp*=0.5; }
+  return t; // ~0..1
+}
+const smoothstep=(a,b,x)=>{ x=Math.min(1,Math.max(0,(x-a)/(b-a))); return x*x*(3-2*x); };
+const lerp=(a,b,t)=>a+(b-a)*t;
+
+// ---------------------------- Terrain --------------------------------
+const FORT = {x:88, z:56, plateau:16};
+const OASIS = {x:34, z:96, r:15};
+
+function terrainHeight(x,z){
+  let h = 9 + fbm(x*0.022, z*0.022) * 7;                 // rolling dunes
+  const m = fbm(x*0.012+97, z*0.012+131);                 // jebel mask
+  if (m > 0.60) h += (m-0.60)*70;                         // rocky mountains
+  const od = Math.hypot(x-OASIS.x, z-OASIS.z);
+  if (od < OASIS.r+6) h = lerp(h, 5.4, smoothstep(OASIS.r+6, OASIS.r-7, od)); // oasis bowl
+  const sd = x - 102;                                                          // the eastern sea
+  if (sd > 0) h = lerp(h, 3.2, smoothstep(0, 16, sd));
+  const fd = Math.hypot(x-FORT.x, z-FORT.z);
+  if (fd < 26) h = lerp(h, FORT.plateau, smoothstep(26, 19, fd));             // fort plateau
+  return Math.max(2, Math.min(SY-12, h));
+}
+
+function generateTerrain(){
+  for(let x=0;x<SX;x++) for(let z=0;z<SZ;z++){
+    const hF = terrainHeight(x,z);
+    const hi = Math.floor(hF);
+    const m  = fbm(x*0.012+97, z*0.012+131);
+    const od = Math.hypot(x-OASIS.x, z-OASIS.z);
+    for(let y=0;y<=hi;y++){
+      let b;
+      if (y === hi){
+        if (m > 0.66 && hi > 18)            b = STONE;       // jebel tops
+        else if (od < OASIS.r+2 && hi >= WATER_Y) b = GRASS; // oasis ring
+        else if (od < OASIS.r+2)            b = DIRT;        // under water
+        else                                 b = SAND;
+      } else if (y > hi-3){
+        b = (od < OASIS.r+2) ? DIRT : SAND;
+      } else if (y > hi-7){
+        b = SANDSTONE;
+      } else b = STONE;
+      setRaw(x,y,z,b);
+    }
+    if (hi < WATER_Y) for(let y=hi+1;y<=WATER_Y;y++) setRaw(x,y,z,WATER);
+  }
+}
+
+// ---------------------------- Palms ----------------------------------
+function palm(x,z){
+  const gy = groundY(x,z);
+  if (getBlock(x,gy,z) !== GRASS && getBlock(x,gy,z) !== SAND) return;
+  const h = 5 + Math.floor(hash2(x*7,z*13)*3);
+  for(let i=1;i<=h;i++) setRaw(x,gy+i,z,TRUNK);
+  const ty = gy+h;
+  const L=(dx,dy,dz)=>{ if(getBlock(x+dx,ty+dy,z+dz)===AIR) setRaw(x+dx,ty+dy,z+dz,LEAVES); };
+  L(0,1,0);
+  for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){
+    L(dx,0,dz); L(dx*2,0,dz*2); L(dx*3,-1,dz*3);          // drooping fronds
+  }
+  for(const [dx,dz] of [[1,1],[1,-1],[-1,1],[-1,-1]]){ L(dx,0,dz); L(dx*2,-1,dz*2); }
+}
+function groundY(x,z){
+  for(let y=SY-1;y>0;y--){ const b=getBlock(x,y,z); if(b!==AIR && b!==WATER) return y; }
+  return 0;
+}
+function plantPalms(){
+  for(let x=2;x<SX-3;x+=1) for(let z=2;z<SZ-3;z+=1){
+    const od = Math.hypot(x-OASIS.x, z-OASIS.z);
+    const r = hash2(x*31+5, z*17+9);
+    if (od < OASIS.r+4 && od > 4 && r < 0.045) palm(x,z);
+    else if (od >= OASIS.r+4 && od < OASIS.r+14 && r < 0.006) palm(x,z); // strays
+  }
+}
+
+// ---------------------------- The Fort -------------------------------
+// A round watch-tower in the spirit of Nizwa, ringed by a crenellated
+// curtain wall with corner turrets, a south gate, and the national colours
+// flying from the top.
+function buildFort(){
+  const {x:cx, z:cz, plateau:P} = FORT;
+
+  // --- flatten plateau & pave a courtyard ---
+  for(let dx=-20;dx<=20;dx++) for(let dz=-20;dz<=20;dz++){
+    const x=cx+dx, z=cz+dz, d=Math.hypot(dx,dz);
+    if (d>20) continue;
+    for(let y=P;y<SY;y++) setRaw(x,y,z,AIR);
+    for(let y=Math.max(2,P-6);y<P;y++) setRaw(x,y,z,SANDSTONE);
+    setRaw(x,P-1,z, d<17 ? SANDSTONE : SAND);
+  }
+
+  const R=7, TH=13;                      // tower radius / height
+  // --- main round tower ---
+  for(let dx=-R-1;dx<=R+1;dx++) for(let dz=-R-1;dz<=R+1;dz++){
+    const d=Math.hypot(dx,dz), x=cx+dx, z=cz+dz;
+    if (d<=R && d>R-1.2){               // shell
+      for(let y=P;y<P+TH;y++) setRaw(x,y,z, y>P+TH-3 ? PLASTER : SANDSTONE);
+      // crenellations (merlons) on alternating rim blocks
+      if (((x+z)&1)===0) setRaw(x,P+TH,z,PLASTER);
+    } else if (d<=R-1.2){
+      setRaw(x,P,z,SANDSTONE);          // tower floor
+      setRaw(x,P+TH-2,z,PLANKS);        // roof terrace you can stand on
+    }
+  }
+  // arrow slits
+  for(const [dx,dz] of [[R,0],[-R,0],[0,R],[0,-R]]){
+    setRaw(cx+dx, P+6, cz+dz, AIR); setRaw(cx+dx, P+7, cz+dz, AIR);
+  }
+  // tower door (south)
+  for(let y=P;y<P+3;y++){ setRaw(cx,y,cz+R,AIR); setRaw(cx,y,cz+R-1,AIR); }
+  setRaw(cx-1,P+3,cz+R,MUDBRICK); setRaw(cx+1,P+3,cz+R,MUDBRICK); setRaw(cx,P+3,cz+R,MUDBRICK);
+
+  // spiral stair inside the tower up to the terrace
+  let ang=0;
+  for(let y=P; y<P+TH-2; ){
+    const sx=Math.round(cx+Math.cos(ang)*(R-2.2));
+    const sz=Math.round(cz+Math.sin(ang)*(R-2.2));
+    setRaw(sx,y,sz,PLANKS);
+    setRaw(sx,y+1,sz,AIR); setRaw(sx,y+2,sz,AIR); // headroom
+    ang += 0.55; y += (ang%1.1<0.55)?0:1;
+    if (ang>40) break;
+  }
+  // terrace hatch
+  setRaw(cx+Math.round(Math.cos(ang)*(R-2.2)), P+TH-2, cz+Math.round(Math.sin(ang)*(R-2.2)), AIR);
+
+  // --- curtain wall, half-width 15, height 4, with merlons ---
+  const HW=15, WH=4;
+  for(let dx=-HW;dx<=HW;dx++) for(let dz=-HW;dz<=HW;dz++){
+    const onEdge = Math.abs(dx)===HW || Math.abs(dz)===HW;
+    if (!onEdge) continue;
+    const x=cx+dx, z=cz+dz;
+    for(let y=P;y<P+WH;y++) setRaw(x,y,z,SANDSTONE);
+    if (((x+z)&1)===0) setRaw(x,P+WH,z,PLASTER);
+  }
+  // corner turrets
+  for(const [sx,szn] of [[-HW,-HW],[HW,-HW],[-HW,HW],[HW,HW]]){
+    const tx=cx+sx, tz=cz+szn;
+    for(let dx=-2;dx<=2;dx++) for(let dz=-2;dz<=2;dz++){
+      const d=Math.hypot(dx,dz);
+      if (d<=2.3 && d>1.1){
+        for(let y=P;y<P+7;y++) setRaw(tx+dx,y,tz+dz, y>P+5?PLASTER:MUDBRICK);
+        if (((tx+dx+tz+dz)&1)===0) setRaw(tx+dx,P+7,tz+dz,PLASTER);
+      } else if (d<=1.1) setRaw(tx+dx,P+6,tz+dz,PLANKS);
+    }
+  }
+  // south gate: 3 wide, 3 high, mudbrick arch
+  for(let dx=-1;dx<=1;dx++) for(let y=P;y<P+3;y++) setRaw(cx+dx,y,cz+HW,AIR);
+  for(let dx=-2;dx<=2;dx++) setRaw(cx+dx,P+3,cz+HW,MUDBRICK);
+  setRaw(cx-2,P,cz+HW,MUDBRICK); setRaw(cx-2,P+1,cz+HW,MUDBRICK); setRaw(cx-2,P+2,cz+HW,MUDBRICK);
+  setRaw(cx+2,P,cz+HW,MUDBRICK); setRaw(cx+2,P+1,cz+HW,MUDBRICK); setRaw(cx+2,P+2,cz+HW,MUDBRICK);
+
+  // --- flag of red / white / green on the tower top ---
+  const fy = P+TH;
+  for(let y=fy;y<fy+6;y++) setRaw(cx,y,cz,TRUNK);                 // pole
+  for(let i=1;i<=3;i++){
+    setRaw(cx+i,fy+5,cz,WHITE);
+    setRaw(cx+i,fy+4,cz,RED);
+    setRaw(cx+i,fy+3,cz,GREEN);
+  }
+  // a couple of date-palms in the courtyard
+  palm(cx-9,cz-8); palm(cx+9,cz+7);
+}
+
+// ---------------------------- Free house -----------------------------
+// A little mudbrick house near spawn — fully furnished-ish, totally free.
+function buildHouse(hx,hz){
+  const base = groundY(hx,hz);
+  const W=4, D=3;
+  for(let dx=-W;dx<=W;dx++) for(let dz=-D;dz<=D;dz++){
+    const x=hx+dx, z=hz+dz;
+    for(let y=base+1;y<base+9;y++) setRaw(x,y,z,AIR);          // clear
+    for(let y=Math.max(2,base-3);y<base;y++) setRaw(x,y,z,SANDSTONE);
+    setRaw(x,base,z,PLANKS);                                    // floor
+    const edge = Math.abs(dx)===W || Math.abs(dz)===D;
+    if (edge){
+      for(let y=base+1;y<=base+4;y++)
+        setRaw(x,y,z, (Math.abs(dx)===W && Math.abs(dz)===D) ? SANDSTONE
+                      : (y===base+4 ? PLASTER : MUDBRICK));
+      if (((x+z)&1)===0) setRaw(x,base+6,z,PLASTER);            // parapet
+    }
+    setRaw(x,base+5,z,PLANKS);                                  // flat roof
+  }
+  // door (south) + plaster lintel
+  setRaw(hx,base+1,hz+D,AIR); setRaw(hx,base+2,hz+D,AIR);
+  setRaw(hx-1,base+3,hz+D,PLASTER); setRaw(hx+1,base+3,hz+D,PLASTER);
+  // windows
+  setRaw(hx-W,base+3,hz,AIR); setRaw(hx+W,base+3,hz,AIR); setRaw(hx,base+3,hz-D,AIR);
+  // welcome banners + a little table inside
+  setRaw(hx-2,base+4,hz+D,GREEN); setRaw(hx+2,base+4,hz+D,RED);
+  setRaw(hx+2,base+1,hz-1,PLANKS);
+}
+
+// ---------------------------- Texture atlas --------------------------
+// 18 original 16px tiles in a 4×5 atlas, drawn by hand in canvas.
+function makeAtlas(){
+  const T=16, N=4, c=document.createElement("canvas");
+  c.width=T*N; c.height=T*5;
+  const g=c.getContext("2d");
+  const rng = (s=>()=> (s=(s*1664525+1013904223)>>>0)/4294967296)(7);
+  function tile(i, fn){
+    const tx=(i%N)*T, ty=Math.floor(i/N)*T;
+    g.save(); g.translate(tx,ty); g.beginPath(); g.rect(0,0,T,T); g.clip();
+    fn(g); g.restore();
+  }
+  const speckle=(g,base,specks,n=40,a=.5)=>{
+    g.fillStyle=base; g.fillRect(0,0,T,T);
+    for(let i=0;i<n;i++){ g.fillStyle=specks[Math.floor(rng()*specks.length)];
+      g.globalAlpha=a*(.4+rng()*.6); g.fillRect(Math.floor(rng()*T),Math.floor(rng()*T),1,1); }
+    g.globalAlpha=1;
+  };
+  tile(0,g=>speckle(g,"#e6cf96",["#d8bd7e","#f2e0b0","#cdb274"],60));           // sand
+  tile(1,g=>{ speckle(g,"#d9b97f",["#c9a96d","#e6caa0"],30);                    // sandstone
+    g.fillStyle="rgba(120,90,40,.35)"; for(let y=3;y<T;y+=5) g.fillRect(0,y,T,1); });
+  tile(2,g=>{ g.fillStyle="#9a6a42"; g.fillRect(0,0,T,T);                       // mudbrick
+    g.fillStyle="#7c5230";
+    for(let y=0;y<T;y+=4){ g.fillRect(0,y,T,1);
+      for(let x=((y/4)%2)*4; x<T; x+=8) g.fillRect(x,y,1,4); }
+    speckle(g,"rgba(0,0,0,0)",["#b07c50"],20,.5); });
+  tile(3,g=>speckle(g,"#8d8d86",["#7b7b74","#a0a098","#6e6e68"],70));           // stone
+  tile(4,g=>speckle(g,"#7a5532",["#69482a","#8a6440","#5c3f24"],60));           // dirt
+  tile(5,g=>speckle(g,"#6da244",["#5c9038","#7fb551","#4f8030"],70));           // grass top
+  tile(6,g=>{ speckle(g,"#7a5532",["#69482a","#8a6440"],40);                    // grass side
+    g.fillStyle="#6da244"; g.fillRect(0,0,T,4);
+    for(let x=0;x<T;x+=2) g.fillRect(x,4,1,1+Math.floor(rng()*2)); });
+  tile(7,g=>{ speckle(g,"#8a6034",["#76512b","#9c7040"],30);                    // palm trunk
+    g.fillStyle="rgba(60,38,16,.5)"; for(let y=1;y<T;y+=4) g.fillRect(0,y,T,2); });
+  tile(8,g=>{ speckle(g,"#9c7040",["#8a6034"],20);                              // trunk rings
+    g.strokeStyle="#6a4724"; for(let r=2;r<T;r+=3){ g.beginPath(); g.arc(T/2,T/2,r,0,7); g.stroke(); } });
+  tile(9,g=>{ speckle(g,"#3f7a3a",["#346a30","#4e9147","#2c5c28"],80);          // fronds
+    g.fillStyle="rgba(20,50,18,.5)"; for(let i=0;i<6;i++) g.fillRect(Math.floor(rng()*T),Math.floor(rng()*T),2,1); });
+  tile(10,g=>{ speckle(g,"#3f7fb8",["#3672a8","#4f93cc"],40);                   // water
+    g.fillStyle="rgba(255,255,255,.25)"; for(let i=0;i<4;i++) g.fillRect(Math.floor(rng()*T),Math.floor(rng()*T),3,1); });
+  tile(11,g=>{ speckle(g,"#f0e7d4",["#e4d8c0","#faf3e4"],26,.6);                // plaster
+    g.fillStyle="rgba(190,170,135,.4)"; g.fillRect(0,T-2,T,1); });
+  tile(12,g=>{ g.fillStyle="#c79a5b"; g.fillRect(0,0,T,T);                      // planks
+    g.fillStyle="#a87e44"; for(let y=0;y<T;y+=4) g.fillRect(0,y,T,1);
+    g.fillStyle="rgba(90,60,25,.5)"; g.fillRect(5,1,1,3); g.fillRect(11,9,1,3); });
+  tile(13,g=>speckle(g,"#c43c3c",["#b23333","#d64a4a"],25,.6));                 // red
+  tile(14,g=>speckle(g,"#f2efe6",["#e6e2d6","#ffffff"],25,.5));                 // white
+  tile(15,g=>speckle(g,"#2f8a4a",["#287a40","#3b9c57"],25,.6));                 // green
+  tile(16,g=>{ speckle(g,"#bfe6f5",["#a9d8ec","#dff2fb","#ffffff"],40,.6);      // dragon ice
+    g.strokeStyle="rgba(255,255,255,.7)"; g.beginPath();
+    g.moveTo(2,12); g.lineTo(7,7); g.lineTo(6,3); g.moveTo(7,7); g.lineTo(13,9); g.stroke(); });
+  tile(17,g=>{ speckle(g,"#6b4226",["#583318","#7c5230"],40,.6);                // dragon poop
+    g.fillStyle="#4a2a12"; g.beginPath(); g.arc(8,9,4,0,7); g.fill();
+    g.fillStyle="#7c5230"; g.beginPath(); g.arc(8,7,2.4,0,7); g.fill();
+    g.fillStyle="rgba(255,255,255,.25)"; g.fillRect(6,5,2,1); });
+  return c;
+}
+
+// ---------------------------- Three.js setup --------------------------
+const canvas = document.getElementById("game");
+const renderer = new THREE.WebGLRenderer({canvas, antialias:false});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(72, innerWidth/innerHeight, 0.08, 500);
+camera.rotation.order = "YXZ";
+
+const sun = new THREE.DirectionalLight(0xfff2dd, 1.0);
+scene.add(sun);
+const amb = new THREE.AmbientLight(0xbfd4e6, 0.55);
+scene.add(amb);
+
+const atlasCanvas = makeAtlas();
+const atlasTex = new THREE.CanvasTexture(atlasCanvas);
+atlasTex.magFilter = THREE.NearestFilter;
+atlasTex.minFilter = THREE.NearestFilter;
+atlasTex.generateMipmaps = false;
+
+const matOpaque = new THREE.MeshLambertMaterial({map:atlasTex, vertexColors:true});
+const matWater  = new THREE.MeshLambertMaterial({map:atlasTex, vertexColors:true,
+                    transparent:true, opacity:0.72, depthWrite:false});
+
+// ---------------------------- Chunk meshing ---------------------------
+const FACES = [
+  {dir:[-1,0,0], shade:0.78, corners:[ [0,1,0,0,1],[0,0,0,0,0],[0,1,1,1,1],[0,0,1,1,0] ]},
+  {dir:[ 1,0,0], shade:0.78, corners:[ [1,1,1,0,1],[1,0,1,0,0],[1,1,0,1,1],[1,0,0,1,0] ]},
+  {dir:[0,-1,0], shade:0.55, corners:[ [1,0,1,1,0],[0,0,1,0,0],[1,0,0,1,1],[0,0,0,0,1] ]},
+  {dir:[0, 1,0], shade:1.00, corners:[ [0,1,1,1,1],[1,1,1,0,1],[0,1,0,1,0],[1,1,0,0,0] ]},
+  {dir:[0,0,-1], shade:0.68, corners:[ [1,0,0,0,0],[0,0,0,1,0],[1,1,0,0,1],[0,1,0,1,1] ]},
+  {dir:[0,0, 1], shade:0.68, corners:[ [0,0,1,0,0],[1,0,1,1,0],[0,1,1,0,1],[1,1,1,1,1] ]},
+];
+
+const chunks = [];        // {mesh, waterMesh, dirty}
+for(let i=0;i<CX*CZ;i++) chunks.push({mesh:null, waterMesh:null, dirty:true});
+const chunkId=(x,z)=> Math.floor(z/CS)*CX + Math.floor(x/CS);
+
+function buildChunk(ci){
+  const c = chunks[ci];
+  const ox=(ci%CX)*CS, oz=Math.floor(ci/CX)*CS;
+  const pos=[], nor=[], uv=[], col=[], ind=[];
+  const wpos=[], wnor=[], wuv=[], wcol=[], wind=[];
+
+  for(let x=ox;x<ox+CS;x++) for(let z=oz;z<oz+CS;z++) for(let y=0;y<SY;y++){
+    const b = getBlock(x,y,z);
+    if (b===AIR) continue;
+    const water = (b===WATER);
+    const tiles = TILES[b];
+    const P = water? wpos:pos, N=water? wnor:nor, U=water? wuv:uv, C=water? wcol:col, I=water? wind:ind;
+    for(let f=0; f<6; f++){
+      const face = FACES[f];
+      const nb = getBlock(x+face.dir[0], y+face.dir[1], z+face.dir[2]);
+      const show = water ? (nb===AIR) : (nb===AIR || nb===WATER);
+      if (!show) continue;
+      const ti = tiles[f], tx = ti%4, ty = Math.floor(ti/4);
+      const start = P.length/3;
+      for(const cn of face.corners){
+        P.push(x+cn[0], y+cn[1], z+cn[2]);
+        N.push(face.dir[0], face.dir[1], face.dir[2]);
+        U.push((tx+cn[3])/4, (4-ty+cn[4])/5);
+        const s = face.shade;
+        C.push(s,s,s);
+      }
+      I.push(start,start+1,start+2, start+2,start+1,start+3);
+    }
+  }
+
+  function toMesh(p,n,u,cl,i,mat,old){
+    if (old){ scene.remove(old); old.geometry.dispose(); }
+    if (i.length===0) return null;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(p,3));
+    geo.setAttribute("normal",   new THREE.Float32BufferAttribute(n,3));
+    geo.setAttribute("uv",       new THREE.Float32BufferAttribute(u,2));
+    geo.setAttribute("color",    new THREE.Float32BufferAttribute(cl,3));
+    geo.setIndex(i);
+    const m = new THREE.Mesh(geo, mat);
+    m.frustumCulled = true;
+    scene.add(m);
+    return m;
+  }
+  c.mesh      = toMesh(pos,nor,uv,col,ind, matOpaque, c.mesh);
+  c.waterMesh = toMesh(wpos,wnor,wuv,wcol,wind, matWater, c.waterMesh);
+  c.dirty = false;
+}
+
+function markDirty(x,y,z){
+  const touch=(xx,zz)=>{ if(xx>=0&&zz>=0&&xx<SX&&zz<SZ) chunks[chunkId(xx,zz)].dirty=true; };
+  touch(x,z);
+  if (x%CS===0)    touch(x-1,z);
+  if (x%CS===CS-1) touch(x+1,z);
+  if (z%CS===0)    touch(x,z-1);
+  if (z%CS===CS-1) touch(x,z+1);
+}
+function setBlock(x,y,z,b){ setRaw(x,y,z,b); markDirty(x,y,z); }
+
+// ---------------------------- Player ---------------------------------
+const player = {
+  pos: new THREE.Vector3(FORT.x+0.5, 30, FORT.z+34),
+  vel: new THREE.Vector3(),
+  yaw: Math.PI, pitch: 0,
+  onGround:false, fly:false, inWater:false,
+  half:0.3, height:1.8, eye:1.62,
+};
+const keys = {};
+
+// ---------------------------- Modes, difficulty & health -------------
+const SPAWN = new THREE.Vector3(FORT.x+0.5, 30, FORT.z+34);
+const MODES = {PEACEFUL:0, CREATIVE:1, SURVIVAL:2};
+let gameMode = MODES.PEACEFUL, difficulty = 1;
+const DIFF = [
+  {name:"Easy",   dragonDmg:3, ghoulDmg:2, maxGhouls:2, regen:1.0, atkMin:18, atkMax:30, ghoulSpd:1.7},
+  {name:"Medium", dragonDmg:5, ghoulDmg:3, maxGhouls:4, regen:0.4, atkMin:12, atkMax:20, ghoulSpd:2.2},
+  {name:"Hard",   dragonDmg:8, ghoulDmg:5, maxGhouls:6, regen:0,   atkMin:7,  atkMax:13, ghoulSpd:2.8},
+];
+let health = 20, dead = false, hurtT = 0, invulnT = 0, lastHInt = -1;
+const survival = ()=> gameMode === MODES.SURVIVAL;
+const hurtEl = document.getElementById("hurt");
+const shortName = d => d.title.replace(/ —.*/,"");
+
+function renderHearts(){
+  const el = document.getElementById("hearts");
+  if (gameMode === MODES.CREATIVE){ el.style.display = "none"; return; }
+  el.style.display = "flex";
+  let s = "";
+  for(let i=0;i<10;i++)
+    s += `<span style="opacity:${health >= (i+1)*2 ? 1 : health >= i*2+1 ? 0.55 : 0.15}">❤</span>`;
+  el.innerHTML = s;
+}
+function damage(amount, cause){
+  if (!survival() || dead || invulnT > 0 || cine.active) return;
+  health = Math.max(0, health - amount);
+  hurtT = 0.5; invulnT = 0.7;
+  burst(120, .18, "sawtooth", .14);
+  lastHInt = -1;
+  if (health <= 0) die(cause);
+}
+function die(cause){
+  dead = true;
+  document.getElementById("deathCause").textContent = cause;
+  document.getElementById("deathScreen").style.display = "flex";
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+function respawn(){
+  dead = false; health = 20; invulnT = 3; lastHInt = -1;
+  player.pos.copy(SPAWN);
+  player.pos.y = groundY(Math.floor(SPAWN.x), Math.floor(SPAWN.z)) + 2;
+  player.vel.set(0,0,0);
+  document.getElementById("deathScreen").style.display = "none";
+  if (!IS_TOUCH) canvas.requestPointerLock();
+}
+function setMode(m){
+  gameMode = m;
+  document.querySelectorAll("#modePills button").forEach(b=> b.classList.toggle("on", +b.dataset.m === m));
+  document.getElementById("diffRow").style.display = m === MODES.SURVIVAL ? "flex" : "none";
+  if (m !== MODES.CREATIVE) player.fly = false;
+  if (!survival()){
+    clearGhouls();
+    dragons.forEach(d=>{ d.diving = false; });
+  }
+  health = 20; lastHInt = -1;
+  flash(["Peaceful mode ☮ — nothing will harm you",
+         "Creative mode ✏ — press F to fly",
+         "Survival mode ⚔ " + DIFF[difficulty].name + " — beware the skies and the night"][m]);
+}
+function setDiff(i){
+  difficulty = i;
+  document.querySelectorAll("#diffPills button").forEach(b=> b.classList.toggle("on", +b.dataset.d === i));
+  flash("Difficulty: " + DIFF[i].name);
+}
+
+function aabbCollides(px,py,pz){
+  const x0=Math.floor(px-player.half), x1=Math.floor(px+player.half);
+  const y0=Math.floor(py),             y1=Math.floor(py+player.height-0.001);
+  const z0=Math.floor(pz-player.half), z1=Math.floor(pz+player.half);
+  for(let x=x0;x<=x1;x++) for(let y=y0;y<=y1;y++) for(let z=z0;z<=z1;z++)
+    if (isSolid(getBlock(x,y,z))) return true;
+  return false;
+}
+
+function movePlayer(dt){
+  const p = player;
+  // input direction in yaw space
+  let fwd=0, str=0;
+  if (keys["KeyW"]||keys["ArrowUp"]) fwd+=1;
+  if (keys["KeyS"]||keys["ArrowDown"]) fwd-=1;
+  if (keys["KeyA"]||keys["ArrowLeft"]) str-=1;
+  if (keys["KeyD"]||keys["ArrowRight"]) str+=1;
+  fwd += touchMove.y; str += touchMove.x;
+  const len = Math.hypot(fwd,str)||1;
+  fwd/=Math.max(1,len); str/=Math.max(1,len);
+
+  const speed = (keys["ShiftLeft"]||keys["ShiftRight"]) ? 7.4 : 4.6;
+  const sin=Math.sin(p.yaw), cos=Math.cos(p.yaw);
+  const ax = (str*cos - fwd*sin) * speed;
+  const az = (-str*sin - fwd*cos) * speed;
+
+  // water check (feet)
+  p.inWater = getBlock(Math.floor(p.pos.x), Math.floor(p.pos.y+0.4), Math.floor(p.pos.z))===WATER;
+
+  if (p.fly){
+    p.vel.set(ax, 0, az);
+    if (keys["Space"]||touchJump) p.vel.y = 7;
+    if (keys["KeyC"]||touchDown) p.vel.y = -7;
+  } else {
+    const accel = p.onGround ? 14 : 5;
+    p.vel.x = lerp(p.vel.x, ax, Math.min(1, accel*dt));
+    p.vel.z = lerp(p.vel.z, az, Math.min(1, accel*dt));
+    const g = p.inWater ? 5 : 26;
+    p.vel.y -= g*dt;
+    if (p.inWater){
+      p.vel.y = Math.max(p.vel.y, -2.4);
+      if (keys["Space"]||touchJump) p.vel.y = 3.4;
+    } else if ((keys["Space"]||touchJump) && p.onGround){
+      p.vel.y = 8.6;
+      sndJump();
+    }
+    p.vel.y = Math.max(-40, p.vel.y);
+  }
+
+  // axis-separated sweep
+  let nx = p.pos.x + p.vel.x*dt;
+  if (aabbCollides(nx, p.pos.y, p.pos.z)){ nx = p.pos.x; p.vel.x = 0; }
+  p.pos.x = nx;
+
+  let nz = p.pos.z + p.vel.z*dt;
+  if (aabbCollides(p.pos.x, p.pos.y, nz)){ nz = p.pos.z; p.vel.z = 0; }
+  p.pos.z = nz;
+
+  let ny = p.pos.y + p.vel.y*dt;
+  p.onGround = false;
+  if (aabbCollides(p.pos.x, ny, p.pos.z)){
+    if (p.vel.y < 0){
+      p.onGround = true;
+      if (survival() && p.vel.y < -13 && !p.inWater)
+        damage(Math.floor((-p.vel.y - 13) * 0.8), "fell from a great height");
+    }
+    ny = p.pos.y; p.vel.y = 0;
+  }
+  p.pos.y = ny;
+
+  // keep inside the world & above bedrock
+  p.pos.x = Math.min(SX-1.5, Math.max(1.5, p.pos.x));
+  p.pos.z = Math.min(SZ-1.5, Math.max(1.5, p.pos.z));
+  if (p.pos.y < -8){ p.pos.set(FORT.x+0.5, 30, FORT.z+34); p.vel.set(0,0,0); }
+
+  camera.position.set(p.pos.x, p.pos.y + p.eye, p.pos.z);
+  camera.rotation.y = p.yaw;
+  camera.rotation.x = p.pitch;
+}
+
+// ---------------------------- Raycast (DDA) --------------------------
+function raycast(maxDist=6.5){
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  let x = camera.position.x, y = camera.position.y, z = camera.position.z;
+  let ix = Math.floor(x), iy = Math.floor(y), iz = Math.floor(z);
+  const sx = Math.sign(dir.x), sy = Math.sign(dir.y), sz = Math.sign(dir.z);
+  const dx = Math.abs(1/(dir.x||1e-9)), dy = Math.abs(1/(dir.y||1e-9)), dz = Math.abs(1/(dir.z||1e-9));
+  let tx = (sx>0 ? ix+1-x : x-ix) * dx;
+  let ty = (sy>0 ? iy+1-y : y-iy) * dy;
+  let tz = (sz>0 ? iz+1-z : z-iz) * dz;
+  let face=[0,0,0], t=0;
+  while (t <= maxDist){
+    const b = getBlock(ix,iy,iz);
+    if (b!==AIR && b!==WATER) return {x:ix,y:iy,z:iz, face, block:b};
+    if (tx < ty && tx < tz){ ix+=sx; t=tx; tx+=dx; face=[-sx,0,0]; }
+    else if (ty < tz)       { iy+=sy; t=ty; ty+=dy; face=[0,-sy,0]; }
+    else                    { iz+=sz; t=tz; tz+=dz; face=[0,0,-sz]; }
+  }
+  return null;
+}
+
+// highlight box
+const hiBox = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002,1.002,1.002)),
+  new THREE.LineBasicMaterial({color:0x111111, transparent:true, opacity:0.65})
+);
+scene.add(hiBox);
+
+// ---------------------------- Actions --------------------------------
+let slot = 0, swing = 0;
+
+// punch dragons and ghouls (survival only)
+function tryHitEntity(){
+  if (!survival()) return false;
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  const origin = camera.position;
+  const hitTest = (pos, rad, reach)=>{
+    const v = pos.clone().sub(origin);
+    const along = v.dot(dir);
+    if (along < 0 || along > reach) return false;
+    return v.sub(dir.clone().multiplyScalar(along)).length() < rad;
+  };
+  for(const d of dragons){
+    if (d.defeated) continue;
+    if (hitTest(d.mesh.position, 1.8*d.scale, 5 + 2*d.scale)){
+      d.hp--; swing = 1;
+      d.mesh.position.y += 0.6;                  // flinch
+      d.diving = false; d.atkT = 4;
+      burst(180, .1, "square", .12);
+      if (d.hp <= 0){
+        d.defeated = true; d.respawnT = 90; d.mesh.visible = false;
+        flash("🏆 You drove off " + shortName(d) + "! It will return…");
+        burst(520, .25, "triangle", .14);
+      }
+      return true;
+    }
+  }
+  for(let i=ghouls.length-1;i>=0;i--){
+    const g = ghouls[i];
+    const c = g.mesh.position.clone(); c.y += 0.9;
+    if (hitTest(c, 1.0, 4.5)){
+      g.hp--; swing = 1;
+      burst(150, .1, "square", .12);
+      const kb = g.mesh.position.clone().sub(player.pos); kb.y = 0; kb.normalize().multiplyScalar(1.7);
+      g.mesh.position.add(kb);
+      if (g.hp <= 0){
+        scene.remove(g.mesh); ghouls.splice(i,1);
+        flash("Sand Ghoul defeated! ⚔"); burst(420, .2, "triangle", .12);
+      }
+      return true;
+    }
+  }
+  return false;
+}
+
+function doBreak(){
+  if (dead) return;
+  if (tryHitEntity()) return;
+  const hit = raycast();
+  if (!hit) return;
+  setBlock(hit.x, hit.y, hit.z, AIR);
+  // water flows into the hole if adjacent (very simple)
+  for(const [dx,dy,dz] of [[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],[0,1,0]])
+    if (getBlock(hit.x+dx,hit.y+dy,hit.z+dz)===WATER && hit.y<=WATER_Y){ setBlock(hit.x,hit.y,hit.z,WATER); break; }
+  swing = 1; sndDig();
+}
+function doPlace(){
+  if (dead) return;
+  const hit = raycast();
+  if (!hit) return;
+  const px = hit.x+hit.face[0], py = hit.y+hit.face[1], pz = hit.z+hit.face[2];
+  if (px<0||py<0||pz<0||px>=SX||py>=SY||pz>=SZ) return;
+  // don't place inside the player
+  const p = player;
+  const inPlayer = px+1 > p.pos.x-p.half && px < p.pos.x+p.half &&
+                   pz+1 > p.pos.z-p.half && pz < p.pos.z+p.half &&
+                   py+1 > p.pos.y        && py < p.pos.y+p.height;
+  if (inPlayer) return;
+  if (getBlock(px,py,pz)!==AIR && getBlock(px,py,pz)!==WATER) return;
+  setBlock(px,py,pz, HOTBAR[slot]);
+  swing = 1; sndPlace();
+}
+
+// ---------------------------- First-person dishdasha arm -------------
+const arm = new THREE.Group();
+{
+  const sleeve = new THREE.Mesh(
+    new THREE.BoxGeometry(0.16,0.16,0.46),
+    new THREE.MeshLambertMaterial({color:0xf6efe2})        // crisp white dishdasha sleeve
+  );
+  sleeve.position.z = -0.10;
+  const cuff = new THREE.Mesh(
+    new THREE.BoxGeometry(0.175,0.175,0.05),
+    new THREE.MeshLambertMaterial({color:0xe2d6bb})        // embroidered cuff hint
+  );
+  cuff.position.z = -0.34;
+  const hand = new THREE.Mesh(
+    new THREE.BoxGeometry(0.14,0.14,0.16),
+    new THREE.MeshLambertMaterial({color:0xc98e62})
+  );
+  hand.position.z = -0.42;
+  arm.add(sleeve, cuff, hand);
+  arm.position.set(0.38, -0.34, -0.55);
+  arm.rotation.set(0.25, -0.30, 0.10);
+  camera.add(arm);
+}
+scene.add(camera);
+
+// ---------------------------- NPCs in dishdasha ----------------------
+function makeOmani(x, z, facing=0, kumaColor=0xb35a3c){
+  const g = new THREE.Group();
+  const white = new THREE.MeshLambertMaterial({color:0xf6efe2});
+  const skin  = new THREE.MeshLambertMaterial({color:0xc98e62});
+  const robe = new THREE.Mesh(new THREE.BoxGeometry(0.56,1.15,0.36), white);
+  robe.position.y = 0.575;
+  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.8,0.2), white);
+  armL.position.set(-0.37,0.72,0);
+  const armR = armL.clone(); armR.position.x = 0.37;
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.32,0.32,0.32), skin);
+  head.position.y = 1.34;
+  const kuma = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.19,0.20,0.14,10),
+    new THREE.MeshLambertMaterial({color:kumaColor})       // embroidered kuma cap
+  );
+  kuma.position.y = 1.55;
+  const band = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.205,0.205,0.04,10),
+    new THREE.MeshLambertMaterial({color:0xf6efe2})
+  );
+  band.position.y = 1.50;
+  const khanjar = new THREE.Mesh(                          // ceremonial dagger at the waist
+    new THREE.BoxGeometry(0.07,0.22,0.05),
+    new THREE.MeshLambertMaterial({color:0xc0c0c0})
+  );
+  khanjar.position.set(0.06,0.78,0.21); khanjar.rotation.z = 0.5;
+  const belt = new THREE.Mesh(new THREE.BoxGeometry(0.58,0.08,0.38),
+    new THREE.MeshLambertMaterial({color:0x6b4226}));
+  belt.position.y = 0.82;
+  g.add(robe, armL, armR, head, kuma, band, belt, khanjar);
+  g.position.set(x+0.5, 0, z+0.5);
+  g.rotation.y = facing;
+  scene.add(g);
+  return g;
+}
+const npcs = [];
+
+// ---------------------------- Dragons --------------------------------
+// Five resident dragons patrol the skies, each with its own character.
+// Walk up to an egg in the oasis nest to hatch a baby that follows you.
+const dragons = [], babies = [], eggs = [];
+let poopCount = 0;
+
+function makeDragon(o){
+  const g = new THREE.Group();
+  const mBody  = new THREE.MeshLambertMaterial({color:o.body,  emissive:o.emissive||0x000000});
+  const mBelly = new THREE.MeshLambertMaterial({color:o.belly});
+  const mWing  = new THREE.MeshLambertMaterial({color:o.wing, transparent:true, opacity:0.95, side:THREE.DoubleSide});
+  const body  = new THREE.Mesh(new THREE.BoxGeometry(1.0,0.9,2.4), mBody);
+  const belly = new THREE.Mesh(new THREE.BoxGeometry(0.8,0.34,2.0), mBelly); belly.position.y=-0.40;
+  const neck  = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.9), mBody); neck.position.set(0,0.35,1.5); neck.rotation.x=-0.4;
+  const head  = new THREE.Mesh(new THREE.BoxGeometry(0.6,0.55,0.8), mBody); head.position.set(0,0.72,2.05);
+  const snout = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.3,0.45), mBelly); snout.position.set(0,0.62,2.55);
+  const hornM = new THREE.MeshLambertMaterial({color:0xf6efe2});
+  const h1 = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.42,0.1), hornM); h1.position.set(0.18,1.12,1.9); h1.rotation.x=-0.4;
+  const h2 = h1.clone(); h2.position.x = -0.18;
+  const eyeM = new THREE.MeshLambertMaterial({color:0x111111});
+  const e1 = new THREE.Mesh(new THREE.BoxGeometry(0.09,0.09,0.05), eyeM); e1.position.set(0.22,0.82,2.46);
+  const e2 = e1.clone(); e2.position.x = -0.22;
+  g.add(body, belly, neck, head, snout, h1, h2, e1, e2);
+  let tw = 0.6;                                            // tapering tail
+  for(let i=0;i<4;i++){
+    const t = new THREE.Mesh(new THREE.BoxGeometry(tw,tw*0.7,0.7), mBody);
+    t.position.set(0, 0.05*i, -1.45-i*0.62); g.add(t); tw*=0.72;
+  }
+  const spikeM = new THREE.MeshLambertMaterial({color:o.spike||o.belly});
+  for(let i=0;i<5;i++){
+    const s = new THREE.Mesh(new THREE.BoxGeometry(0.12,0.3,0.12), spikeM);
+    s.position.set(0, 0.58, 1.0-i*0.55); g.add(s);
+  }
+  const wingGeo = new THREE.BoxGeometry(2.3,0.08,1.3);
+  const wl = new THREE.Group(), wr = new THREE.Group();
+  const wlm = new THREE.Mesh(wingGeo, mWing); wlm.position.x=-1.2; wl.add(wlm); wl.position.set(-0.5,0.35,0.3);
+  const wrm = new THREE.Mesh(wingGeo, mWing); wrm.position.x= 1.2; wr.add(wrm); wr.position.set( 0.5,0.35,0.3);
+  g.add(wl, wr);
+  if (o.junk){                                             // garbage dragon's hoard
+    for(let i=0;i<7;i++){
+      const j = new THREE.Mesh(new THREE.BoxGeometry(0.26,0.26,0.26),
+        new THREE.MeshLambertMaterial({color: i%2 ? 0x8a8a82 : 0x4a5a32}));
+      j.position.set((Math.random()-0.5)*0.9, 0.4+Math.random()*0.35, (Math.random()-0.5)*2.2);
+      j.rotation.set(Math.random(), Math.random(), Math.random());
+      g.add(j);
+    }
+  }
+  g.scale.setScalar(o.scale||1);
+  scene.add(g);
+  const d = Object.assign({mesh:g, wl, wr, mats:[mBody,mBelly,mWing],
+                           a:Math.random()*6.28, poopT:6, freezeT:5, cool:0, t:0,
+                           flap:o.flap||3}, o);
+  d.hp = d.maxHp = o.hp || 8;
+  if (o.cx !== undefined) dragons.push(d);
+  return d;
+}
+
+function dropPoop(x,z){
+  if (poopCount >= 50) return;
+  const ix = Math.floor(x), iz = Math.floor(z);
+  if (ix<1||iz<1||ix>=SX-1||iz>=SZ-1) return;
+  const gy = groundY(ix,iz);
+  if (gy < SY-2 && getBlock(ix,gy+1,iz)===AIR){
+    setBlock(ix,gy+1,iz,POOP); poopCount++;
+    burst(70,.15,"sawtooth",.08);
+  }
+}
+
+function makeEgg(x,z,opts){
+  const gy = groundY(x,z);
+  const m = new THREE.Mesh(new THREE.SphereGeometry(0.32,10,10),
+            new THREE.MeshLambertMaterial({color:opts.body}));
+  m.scale.y = 1.35;
+  m.position.set(x+0.5, gy+1.4, z+0.5);
+  scene.add(m);
+  eggs.push(Object.assign({mesh:m}, opts));
+}
+function hatch(e){
+  const b = makeDragon({scale:0.34, body:e.body, belly:e.belly, wing:e.wing,
+                        rainbow:e.rainbow, flap:9});
+  b.t = Math.random()*5;
+  babies.push(b);
+  burst(540,.12,"triangle",.12); burst(760,.2,"sine",.1);
+  flash("🐣 A baby dragon hatched — it follows you now!");
+}
+
+function updateDragons(dt, now){
+  const cfg = DIFF[difficulty];
+  for(const d of dragons){
+    if (d.defeated){
+      d.respawnT -= dt;
+      if (d.respawnT <= 0){ d.defeated = false; d.hp = d.maxHp; d.mesh.visible = true; }
+      continue;
+    }
+    d.a += dt * d.speed / d.radius;
+    const x = d.cx + Math.cos(d.a)*d.radius;
+    const z = d.cz + Math.sin(d.a)*d.radius;
+    const y = d.alt + Math.sin(now*0.0017 + d.a)*1.5;
+
+    // survival: dragons hunt you with dive attacks
+    if (survival() && !dead && !cine.active){
+      if (d.atkT === undefined) d.atkT = 6 + Math.random()*10;
+      d.atkT -= dt;
+      const distP = player.pos.distanceTo(d.mesh.position);
+      if (!d.diving && d.atkT <= 0 && distP < 60){
+        d.diving = true; d.diveT = 0;
+        flash("⚠ " + shortName(d) + " dives at you!");
+        burst(240,.3,"sawtooth",.07);
+      }
+      if (d.diving){
+        d.diveT += dt;
+        const tgt = new THREE.Vector3(player.pos.x, player.pos.y+1.2, player.pos.z);
+        const dir = tgt.clone().sub(d.mesh.position);
+        const dist3 = dir.length(); dir.normalize();
+        d.mesh.position.addScaledVector(dir, (d.freezes ? 15 : 11)*dt);
+        d.mesh.lookAt(tgt);
+        const f = Math.sin(now*0.006*d.flap)*0.95;
+        d.wl.rotation.z = f; d.wr.rotation.z = -f;
+        if (dist3 < 2.2 + d.scale){
+          damage(Math.round(cfg.dragonDmg * (d.freezes ? 1.6 : 1)), "slain by " + shortName(d));
+          d.diving = false;
+          d.atkT = cfg.atkMin + Math.random()*(cfg.atkMax - cfg.atkMin);
+        } else if (d.diveT > 6){
+          d.diving = false;
+          d.atkT = cfg.atkMin + Math.random()*(cfg.atkMax - cfg.atkMin);
+        }
+        continue;                               // skip patrol while diving
+      }
+    } else d.diving = false;
+
+    // patrol (eases back smoothly after a dive)
+    d.mesh.position.lerp(new THREE.Vector3(x,y,z), Math.min(1, dt*3));
+    d.mesh.rotation.x = 0;
+    d.mesh.rotation.y = Math.atan2(-Math.sin(d.a), Math.cos(d.a));
+    d.mesh.rotation.z = Math.sin(now*0.001 + d.a)*0.08;
+    const flap = Math.sin(now*0.001*d.flap*3)*0.7;
+    d.wl.rotation.z =  flap; d.wr.rotation.z = -flap;
+    if (d.rainbow){
+      const hue = (now*0.0001 + d.a*0.05) % 1;
+      d.mats[0].color.setHSL(hue, 0.85, 0.55);
+      d.mats[2].color.setHSL((hue+0.33)%1, 0.85, 0.6);
+      d.mats[1].color.setHSL((hue+0.66)%1, 0.85, 0.65);
+    }
+    if (d.poops){ d.poopT -= dt; if (d.poopT<=0){ d.poopT = 7+Math.random()*7; dropPoop(d.mesh.position.x, d.mesh.position.z); } }
+    if (d.freezes){                                       // the ice dragon glazes the falaj
+      d.freezeT -= dt;
+      if (d.freezeT<=0){
+        d.freezeT = 9+Math.random()*8;
+        const ix = Math.floor(d.mesh.position.x), iz = Math.floor(d.mesh.position.z);
+        if (getBlock(ix,WATER_Y,iz)===WATER) setBlock(ix,WATER_Y,iz,ICE);
+      }
+    }
+    // announce when close
+    const dist = Math.hypot(player.pos.x-d.mesh.position.x, player.pos.z-d.mesh.position.z);
+    d.cool -= dt;
+    if (dist < 16 && d.cool <= 0){ d.cool = 35; flash(d.title); }
+  }
+  // hatched babies orbit-follow the player
+  babies.forEach((b,i)=>{
+    b.t += dt;
+    const ang = player.yaw + Math.PI + (i-(babies.length-1)/2)*0.55;
+    const tx = player.pos.x + Math.sin(ang)*2.3;
+    const tz = player.pos.z + Math.cos(ang)*2.3;
+    const ty = groundY(Math.floor(tx),Math.floor(tz)) + 1.7 + Math.sin(b.t*3+i)*0.3;
+    b.mesh.position.lerp(new THREE.Vector3(tx,ty,tz), Math.min(1, dt*2.6));
+    b.mesh.lookAt(player.pos.x, b.mesh.position.y, player.pos.z);
+    const f = Math.sin(b.t*9)*0.85;
+    b.wl.rotation.z = f; b.wr.rotation.z = -f;
+  });
+  // walk up to an egg to hatch it
+  for(let i=eggs.length-1;i>=0;i--){
+    const e = eggs[i];
+    if (Math.hypot(player.pos.x-e.mesh.position.x, player.pos.z-e.mesh.position.z) < 1.9
+        && Math.abs(player.pos.y-e.mesh.position.y) < 3){
+      scene.remove(e.mesh); eggs.splice(i,1); hatch(e);
+    }
+  }
+}
+
+// ---------------------------- Sand Ghouls (survival nights) ----------
+// Monsters that rise from the dunes after dark — Survival mode only.
+const ghouls = [];
+let ghoulSpawnT = 0;
+function makeGhoul(x,z){
+  const g = new THREE.Group();
+  const mB = new THREE.MeshLambertMaterial({color:0x3a4232});
+  const mD = new THREE.MeshLambertMaterial({color:0x262d20});
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.8,0.3), mB); body.position.y=0.95;
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.4,0.4), mD); head.position.y=1.55;
+  const eyeM = new THREE.MeshLambertMaterial({color:0xff3322, emissive:0xaa1100});
+  const e1 = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,0.04), eyeM); e1.position.set(0.1,1.6,0.21);
+  const e2 = e1.clone(); e2.position.x = -0.1;
+  const aL = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.7,0.16), mD); aL.position.set(-0.37,1.05,0.18); aL.rotation.x=-1.25;
+  const aR = aL.clone(); aR.position.x = 0.37;
+  const lL = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.6,0.18), mB); lL.position.set(-0.14,0.3,0);
+  const lR = lL.clone(); lR.position.x = 0.14;
+  g.add(body, head, e1, e2, aL, aR, lL, lR);
+  g.position.set(x, groundY(Math.floor(x),Math.floor(z))+1, z);
+  scene.add(g);
+  ghouls.push({mesh:g, hp:3, atkT:1, t:Math.random()*6});
+}
+function clearGhouls(dawn){
+  ghouls.forEach(g=> scene.remove(g.mesh));
+  ghouls.length = 0;
+  if (dawn) flash("☀ The Sand Ghouls crumble at dawn");
+}
+function updateGhouls(dt){
+  if (!survival() || dead){
+    if (ghouls.length && !survival()) clearGhouls();
+    return;
+  }
+  const cfg = DIFF[difficulty];
+  const night = sunHeight < -0.04;
+  if (night){
+    ghoulSpawnT -= dt;
+    if (ghoulSpawnT <= 0 && ghouls.length < cfg.maxGhouls){
+      ghoulSpawnT = 4 + Math.random()*5;
+      const a = Math.random()*Math.PI*2, r = 18 + Math.random()*14;
+      const x = Math.min(SX-3, Math.max(3, player.pos.x + Math.cos(a)*r));
+      const z = Math.min(SZ-3, Math.max(3, player.pos.z + Math.sin(a)*r));
+      const gy = groundY(Math.floor(x), Math.floor(z));
+      if (getBlock(Math.floor(x), gy, Math.floor(z)) !== WATER && gy > WATER_Y-1) makeGhoul(x,z);
+    }
+  } else if (ghouls.length) clearGhouls(true);
+
+  for(const g of ghouls){
+    g.t += dt;
+    const dx = player.pos.x - g.mesh.position.x;
+    const dz = player.pos.z - g.mesh.position.z;
+    const dist = Math.hypot(dx,dz);
+    if (dist > 0.6){
+      const s = cfg.ghoulSpd*dt/dist;
+      g.mesh.position.x += dx*s;
+      g.mesh.position.z += dz*s;
+    }
+    const gy = groundY(Math.floor(g.mesh.position.x), Math.floor(g.mesh.position.z)) + 1;
+    g.mesh.position.y = lerp(g.mesh.position.y, gy + Math.abs(Math.sin(g.t*7))*0.07, Math.min(1, dt*9));
+    g.mesh.rotation.y = Math.atan2(dx, dz);
+    g.atkT -= dt;
+    if (dist < 1.5 && g.atkT <= 0){
+      g.atkT = 1.2;
+      damage(cfg.ghoulDmg, "caught by a Sand Ghoul in the night");
+    }
+  }
+}
+
+// ---------------------------- Clouds ---------------------------------
+const clouds = new THREE.Group();
+{
+  const m = new THREE.MeshLambertMaterial({color:0xffffff, transparent:true, opacity:0.85});
+  for(let i=0;i<10;i++){
+    const w = 8+Math.random()*14, d = 5+Math.random()*9;
+    const c = new THREE.Mesh(new THREE.BoxGeometry(w,1,d), m);
+    c.position.set(Math.random()*SX, 42+Math.random()*4, Math.random()*SZ);
+    clouds.add(c);
+  }
+  scene.add(clouds);
+}
+
+// ---------------------------- Day / night ----------------------------
+const skyDay   = new THREE.Color(0x9fd2f2);
+const skyDusk  = new THREE.Color(0xf2a45e);
+const skyNight = new THREE.Color(0x0c1126);
+let dayT = 0.30;                       // morning
+let sunHeight = 1;
+const DAY_LEN = 300;                   // seconds per full cycle
+const skyCol = new THREE.Color();
+scene.fog = new THREE.Fog(0x9fd2f2, 55, 190);
+
+function updateSky(dt){
+  dayT = (dayT + dt/DAY_LEN) % 1;
+  const a = dayT * Math.PI * 2;
+  const sh = Math.sin(a);              // sun height -1..1
+  sunHeight = sh;
+  sun.position.set(Math.cos(a)*80, sh*100, 30);
+  sun.intensity = Math.max(0.05, sh)*0.95 + 0.12;
+  amb.intensity = 0.30 + Math.max(0,sh)*0.34;
+  if (sh > 0.25)       skyCol.copy(skyDay);
+  else if (sh > -0.08) skyCol.copy(skyDusk).lerp(skyDay, smoothstep(-0.08,0.25,sh));
+  else                 skyCol.copy(skyNight).lerp(skyDusk, smoothstep(-0.35,-0.08,sh));
+  scene.background = skyCol;
+  scene.fog.color.copy(skyCol);
+}
+
+// ---------------------------- Audio (tiny, synthesized) --------------
+let AC = null, masterGain = null, recDest = null;
+function audio(){
+  if(!AC){
+    try{
+      AC = new (window.AudioContext||window.webkitAudioContext)();
+      masterGain = AC.createGain();
+      masterGain.connect(AC.destination);
+      recDest = AC.createMediaStreamDestination();
+      masterGain.connect(recDest);
+    }catch(e){}
+  }
+  return AC;
+}
+function burst(freq, dur, type="square", vol=0.12){
+  const ac = audio(); if(!ac) return;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, ac.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime+dur);
+  o.connect(g).connect(masterGain);
+  o.start(); o.stop(ac.currentTime+dur);
+}
+const sndDig   = ()=>burst(95+Math.random()*30, .09, "square", .10);
+const sndPlace = ()=>burst(220+Math.random()*40, .07, "triangle", .12);
+const sndJump  = ()=>burst(330, .05, "sine", .06);
+
+// ---------------------------- Clip recorder & cinematic flyby --------
+// Records the WebGL canvas (plus game audio) straight to a video file —
+// MP4 where the browser supports it, otherwise WebM. Both upload fine
+// to LinkedIn.
+let recorder = null, recChunks = [];
+function startRecording(){
+  if (recorder) return;
+  if (!canvas.captureStream || typeof MediaRecorder === "undefined"){
+    flash("Recording isn't supported in this browser"); return;
+  }
+  audio();
+  const stream = canvas.captureStream(30);
+  if (recDest) recDest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+  let mime = "";
+  for (const m of ["video/mp4;codecs=avc1","video/mp4","video/webm;codecs=vp9","video/webm"])
+    if (MediaRecorder.isTypeSupported(m)){ mime = m; break; }
+  try { recorder = new MediaRecorder(stream, {mimeType:mime, videoBitsPerSecond:9e6}); }
+  catch(e){ recorder = new MediaRecorder(stream); }
+  recChunks = [];
+  recorder.ondataavailable = e => { if (e.data.size) recChunks.push(e.data); };
+  recorder.onstop = () => {
+    const type = recorder.mimeType || "video/webm";
+    const blob = new Blob(recChunks, {type});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "voxel-oman-clip." + (type.includes("mp4") ? "mp4" : "webm");
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=> URL.revokeObjectURL(a.href), 8000);
+    recorder = null;
+    document.body.classList.remove("recording");
+    flash("Clip saved to your downloads 🎬");
+  };
+  recorder.start();
+  document.body.classList.add("recording");
+  flash("● Recording — press R to stop");
+}
+function stopRecording(){ if (recorder && recorder.state !== "inactive") recorder.stop(); }
+
+// Automatic 16-second golden-hour drone orbit of the fort
+const cine = {active:false, t:0, dur:16};
+function startCinematic(){
+  if (cine.active) return;
+  cine.active = true; cine.t = 0;
+  dayT = 0.405;                                 // warm late-afternoon light
+  arm.visible = false; hiBox.visible = false;
+  menu.style.display = "none";
+  startRecording();
+}
+function endCinematic(){
+  cine.active = false;
+  arm.visible = true;
+  setTimeout(stopRecording, 150);
+  if (!locked && !IS_TOUCH) menu.style.display = "flex";
+}
+function updateCinematic(dt){
+  cine.t += dt;
+  const k = cine.t / cine.dur;
+  if (k >= 1){ endCinematic(); return; }
+  const e = smoothstep(0, 1, k);
+  const ang = -Math.PI*0.55 + e*Math.PI*1.75;   // sweep around the fort
+  const r = lerp(36, 19, e);                    // glide in closer…
+  const h = lerp(FORT.plateau+24, FORT.plateau+8, e);   // …and lower
+  camera.position.set(FORT.x+0.5+Math.cos(ang)*r, h, FORT.z+0.5+Math.sin(ang)*r);
+  camera.lookAt(FORT.x+0.5, FORT.plateau+7, FORT.z+0.5);
+}
+
+// ---------------------------- Input ----------------------------------
+const menu = document.getElementById("menu");
+let locked = false;
+
+document.addEventListener("keydown", e=>{
+  keys[e.code] = true;
+  if (e.code.startsWith("Digit")){
+    const n = +e.code.slice(5);
+    if (n>=1 && n<=HOTBAR.length) selectSlot(n-1);
+  }
+  if (e.code==="KeyF"){
+    if (gameMode === MODES.CREATIVE){
+      player.fly = !player.fly; player.vel.set(0,0,0);
+      flash(player.fly ? "Flying — Space/C for up/down" : "Walking");
+    } else flash("Flying is Creative-mode only");
+  }
+  if (e.code==="KeyR" && !cine.active){ recorder ? stopRecording() : startRecording(); }
+  if (e.code==="KeyV" && !cine.active) startCinematic();
+  if (e.code==="Space") e.preventDefault();
+});
+document.addEventListener("keyup", e=> keys[e.code]=false);
+
+document.addEventListener("mousedown", e=>{
+  if (!locked) return;
+  if (e.button===0) doBreak();
+  if (e.button===2) doPlace();
+});
+document.addEventListener("contextmenu", e=> e.preventDefault());
+document.addEventListener("wheel", e=>{
+  if (!locked) return;
+  selectSlot((slot + (e.deltaY>0?1:-1) + HOTBAR.length) % HOTBAR.length);
+});
+document.addEventListener("mousemove", e=>{
+  if (!locked) return;
+  player.yaw   -= e.movementX * 0.0024;
+  player.pitch -= e.movementY * 0.0024;
+  player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch));
+});
+document.addEventListener("pointerlockchange", ()=>{
+  locked = document.pointerLockElement === canvas;
+  menu.style.display = locked || IS_TOUCH ? "none" : "flex";
+});
+
+// ---------------------------- Touch ----------------------------------
+const IS_TOUCH = ("ontouchstart" in window) && matchMedia("(pointer:coarse)").matches;
+const touchMove = {x:0, y:0};
+let touchJump = false, touchDown = false;
+if (IS_TOUCH){
+  document.body.classList.add("touch");
+  document.getElementById("ctlDesktop").style.display = "none";
+  document.getElementById("ctlTouch").style.display = "inline-block";
+  document.getElementById("crosshair").style.opacity = 0.7;
+
+  const joy = document.getElementById("joy"), knob = document.getElementById("joyKnob");
+  let joyId = null, jx0=0, jy0=0;
+  joy.addEventListener("touchstart", e=>{
+    const t = e.changedTouches[0]; joyId = t.identifier;
+    const r = joy.getBoundingClientRect(); jx0 = r.left+r.width/2; jy0 = r.top+r.height/2;
+    e.preventDefault();
+  }, {passive:false});
+  window.addEventListener("touchmove", e=>{
+    for(const t of e.changedTouches){
+      if (t.identifier===joyId){
+        let dx = (t.clientX-jx0)/48, dy = (t.clientY-jy0)/48;
+        const m = Math.hypot(dx,dy); if (m>1){ dx/=m; dy/=m; }
+        touchMove.x = dx; touchMove.y = -dy;
+        knob.style.transform = `translate(calc(-50% + ${dx*34}px), calc(-50% + ${dy*34}px))`;
+      } else if (t.identifier===lookId){
+        player.yaw   -= (t.clientX-lx)*0.005;
+        player.pitch -= (t.clientY-ly)*0.005;
+        player.pitch = Math.max(-1.55, Math.min(1.55, player.pitch));
+        lx=t.clientX; ly=t.clientY;
+      }
+    }
+  }, {passive:false});
+  window.addEventListener("touchend", e=>{
+    for(const t of e.changedTouches){
+      if (t.identifier===joyId){ joyId=null; touchMove.x=touchMove.y=0; knob.style.transform="translate(-50%,-50%)"; }
+      if (t.identifier===lookId) lookId=null;
+    }
+  });
+
+  let lookId = null, lx=0, ly=0;
+  canvas.addEventListener("touchstart", e=>{
+    for(const t of e.changedTouches){
+      if (t.clientX > innerWidth*0.4 && lookId===null){ lookId=t.identifier; lx=t.clientX; ly=t.clientY; }
+    }
+  }, {passive:true});
+
+  const hold=(el,fn)=>{ let iv;
+    el.addEventListener("touchstart",e=>{ e.preventDefault(); fn(); iv=setInterval(fn,260); },{passive:false});
+    el.addEventListener("touchend",()=>clearInterval(iv));
+  };
+  hold(document.getElementById("btnMine"),  doBreak);
+  hold(document.getElementById("btnPlace"), doPlace);
+  document.getElementById("btnCine").addEventListener("touchstart", e=>{
+    e.preventDefault(); audio(); startCinematic();
+  }, {passive:false});
+  const bj = document.getElementById("btnJump");
+  bj.addEventListener("touchstart",e=>{ e.preventDefault(); touchJump=true; },{passive:false});
+  bj.addEventListener("touchend",()=> touchJump=false);
+  const bf = document.getElementById("btnFly");
+  bf.addEventListener("touchstart",e=>{
+    e.preventDefault();
+    if (gameMode === MODES.CREATIVE){
+      player.fly = !player.fly; player.vel.set(0,0,0);
+      bf.style.background = player.fly ? "rgba(192,122,46,.8)" : "rgba(20,12,4,.5)";
+      flash(player.fly ? "✈ Flying — ⤒ up, ⤓ down" : "Walking");
+    } else flash("Flying is Creative-mode only — pick ✏ Creative in the menu");
+  },{passive:false});
+  const bd = document.getElementById("btnDown");
+  bd.addEventListener("touchstart",e=>{ e.preventDefault(); touchDown=true; },{passive:false});
+  bd.addEventListener("touchend",()=> touchDown=false);
+}
+
+// ---------------------------- HUD ------------------------------------
+const hotbarEl = document.getElementById("hotbar");
+const nameEl = document.getElementById("blockname");
+let nameTimer = 0;
+function buildHotbar(){
+  HOTBAR.forEach((b,i)=>{
+    const d = document.createElement("div");
+    d.className = "slot" + (i===slot?" sel":"");
+    const k = document.createElement("div"); k.className="key"; k.textContent = i<9 ? i+1 : "";
+    const cv = document.createElement("canvas"); cv.width=cv.height=16;
+    const ti = TILES[b][3], tx=(ti%4)*16, ty=Math.floor(ti/4)*16;
+    cv.getContext("2d").drawImage(atlasCanvas, tx,ty,16,16, 0,0,16,16);
+    d.appendChild(cv); d.appendChild(k);
+    d.addEventListener("pointerdown", ev=>{ ev.stopPropagation(); selectSlot(i); });
+    hotbarEl.appendChild(d);
+  });
+}
+function selectSlot(i){
+  slot = i;
+  [...hotbarEl.children].forEach((el,j)=> el.classList.toggle("sel", j===i));
+  flash(NAMES[HOTBAR[i]]);
+}
+function flash(txt){
+  nameEl.textContent = txt; nameEl.style.opacity = 1; nameTimer = 1.6;
+}
+const topbar = document.getElementById("topbar");
+
+// ---------------------------- Boot -----------------------------------
+generateTerrain();
+plantPalms();
+buildFort();
+buildHouse(74, 100);                        // your free house, west of spawn
+buildHotbar();
+selectSlot(0);
+
+// --- the five dragons of Qal'a ---
+makeDragon({title:"❄ JALMOOD THE ICE DRAGON — the strongest of all", scale:2.4,
+  body:0x9fd4ec, belly:0xeaf7ff, wing:0xcfeefc, spike:0xffffff, emissive:0x16374a,
+  cx:64, cz:64, radius:42, alt:38, speed:7, flap:1.6, freezes:true, hp:16});
+makeDragon({title:"🟣 KANANOLY THE MYSTERIOUS", scale:1.45,
+  body:0x6a3f8c, belly:0xd9b84a, wing:0x8a5ab0, spike:0xd9b84a,
+  cx:42, cz:40, radius:24, alt:30, speed:8, flap:2.6});
+makeDragon({title:"🌈 QAWS THE RAINBOW DRAGON", scale:1.2,
+  body:0xff5577, belly:0xffe066, wing:0x66ddff,
+  cx:OASIS.x, cz:OASIS.z, radius:18, alt:26, speed:9, flap:3.2, rainbow:true});
+makeDragon({title:"🗑 SCRAPWING THE GARBAGE DRAGON", scale:1.3,
+  body:0x5a6b3a, belly:0x8a8a72, wing:0x6e7a52, spike:0x8a8a82,
+  cx:100, cz:100, radius:20, alt:22, speed:8, flap:2.8, junk:true});
+makeDragon({title:"💩 BOMBAX THE POOP DRAGON — watch your head!", scale:1.05,
+  body:0x6b4226, belly:0x8a6034, wing:0x7c5230, spike:0x503018,
+  cx:70, cz:86, radius:16, alt:19, speed:9, flap:3.4, poops:true});
+
+// --- dragon egg nest at the oasis ---
+{
+  const nx=44, nz=92, ngy=groundY(nx,nz);
+  for(let dx=-1;dx<=1;dx++) for(let dz=-1;dz<=1;dz++) setRaw(nx+dx,ngy,nz+dz,PLANKS);
+  makeEgg(nx-1, nz-1, {body:0x9fd4ec, belly:0xeaf7ff, wing:0xcfeefc});           // ice baby
+  makeEgg(nx+1, nz,   {body:0xff5577, belly:0xffe066, wing:0x66ddff, rainbow:true}); // rainbow baby
+  makeEgg(nx,   nz+1, {body:0x6a3f8c, belly:0xd9b84a, wing:0x8a5ab0});           // kananoly baby
+}
+
+// Two guards in dishdasha & kuma by the south gate of the fort
+npcs.push(makeOmani(FORT.x-3, FORT.z+16, Math.PI, 0xb35a3c));
+npcs.push(makeOmani(FORT.x+3, FORT.z+16, Math.PI, 0x7a4a8a));
+
+// --- the hero crowd: villagers gather to cheer for YOU ---
+const crowd = [];
+let crowdCheerT = 0;
+{
+  const kumas = [0xb35a3c, 0x7a4a8a, 0x2f8a4a, 0xc43c3c, 0x3f7fb8, 0xd9b84a];
+  for(let i=0;i<12;i++){
+    const a = (i/12)*Math.PI*0.9 + Math.PI*0.05;          // semicircle facing the road
+    const r = 6 + (i%2)*2;
+    const x = Math.floor(FORT.x + Math.cos(a)*r - r/2 + 4);
+    const z = Math.floor(FORT.z + 19 + Math.sin(a)*3 + (i%3));
+    const g = makeOmani(x, z, Math.PI, kumas[i%kumas.length]);
+    const armL = g.children[1], armR = g.children[2];
+    armL.position.y = 1.05; armR.position.y = 1.05;       // arms raised to cheer
+    armL.rotation.z =  2.5;  armR.rotation.z = -2.5;
+    crowd.push({g, armL, armR, phase: Math.random()*6.28,
+                baseY: groundY(x, z) + 1, cheered: 0});
+    g.position.y = groundY(x, z) + 1;
+  }
+}
+npcs.forEach(n=> n.position.y = groundY(Math.floor(n.position.x), Math.floor(n.position.z)) + 1);
+
+// drop the player onto the ground
+player.pos.y = groundY(Math.floor(player.pos.x), Math.floor(player.pos.z)) + 2;
+
+document.getElementById("loadnote").textContent =
+  `World ready — ${SX}×${SZ} blocks, one fort, a palm oasis, five dragons, three eggs, one free house.`;
+
+document.getElementById("playBtn").addEventListener("click", ()=>{
+  audio();
+  if (IS_TOUCH){ menu.style.display = "none"; }
+  else canvas.requestPointerLock();
+});
+document.getElementById("cineBtn").addEventListener("click", e=>{
+  e.stopPropagation(); audio(); startCinematic();
+});
+document.getElementById("respawnBtn").addEventListener("click", respawn);
+document.querySelectorAll("#modePills button").forEach(b=>
+  b.addEventListener("click", ()=> setMode(+b.dataset.m)));
+document.querySelectorAll("#diffPills button").forEach(b=>
+  b.addEventListener("click", ()=> setDiff(+b.dataset.d)));
+renderHearts();
+canvas.addEventListener("click", ()=>{ if(!locked && !IS_TOUCH) canvas.requestPointerLock(); });
+
+window.addEventListener("resize", ()=>{
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+// ---------------------------- Main loop ------------------------------
+let last = performance.now();
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now-last)/1000); last = now;
+  const playing = locked || IS_TOUCH;
+
+  if (cine.active) updateCinematic(dt);
+  else if (playing && !dead) movePlayer(dt);
+  updateSky(dt);
+
+  // rebuild a few dirty chunks per frame
+  let built = 0;
+  for(let i=0;i<chunks.length && built<3;i++)
+    if (chunks[i].dirty){ buildChunk(i); built++; }
+
+  // target highlight
+  if (playing && !cine.active){
+    const hit = raycast();
+    hiBox.visible = !!hit;
+    if (hit) hiBox.position.set(hit.x+0.5, hit.y+0.5, hit.z+0.5);
+  } else hiBox.visible = false;
+
+  // arm swing & gentle bob
+  if (swing > 0) swing = Math.max(0, swing - dt*5);
+  const sw = Math.sin(swing*Math.PI);
+  const bob = (player.onGround && (Math.abs(player.vel.x)+Math.abs(player.vel.z))>0.5)
+              ? Math.sin(now*0.012)*0.012 : 0;
+  arm.rotation.x = 0.25 - sw*1.1;
+  arm.position.y = -0.34 + bob;
+
+  // dragons, babies, eggs, ghouls
+  updateDragons(dt, now);
+  updateGhouls(dt);
+
+  // survival upkeep: timers, regen, hearts, hurt flash
+  if (invulnT > 0) invulnT -= dt;
+  if (hurtT > 0) hurtT -= dt;
+  hurtEl.style.opacity = Math.max(0, hurtT*1.5);
+  if (!dead){
+    if (gameMode === MODES.PEACEFUL) health = 20;
+    else if (survival() && DIFF[difficulty].regen > 0 && health < 20)
+      health = Math.min(20, health + DIFF[difficulty].regen*dt);
+  }
+  const hInt = Math.ceil(health);
+  if (hInt !== lastHInt){ lastHInt = hInt; renderHearts(); }
+
+  // idle NPC sway
+  npcs.forEach((n,i)=>{ n.rotation.y = Math.PI + Math.sin(now*0.0006 + i*2)*0.25; });
+
+  // the hero crowd jumps and waves for you
+  let nearCrowd = false;
+  crowd.forEach((c,i)=>{
+    const jump = Math.abs(Math.sin(now*0.004 + c.phase));
+    c.g.position.y = c.baseY + jump*0.45;
+    c.armL.rotation.z =  2.5 + Math.sin(now*0.012 + c.phase)*0.35;
+    c.armR.rotation.z = -2.5 - Math.sin(now*0.012 + c.phase + 1)*0.35;
+    // they turn to face the hero
+    const dx = player.pos.x - c.g.position.x, dz = player.pos.z - c.g.position.z;
+    c.g.rotation.y = Math.atan2(dx, dz);
+    if (Math.hypot(dx,dz) < 11) nearCrowd = true;
+  });
+  crowdCheerT -= dt;
+  if (nearCrowd && crowdCheerT <= 0){
+    crowdCheerT = 25;
+    flash("🎉 The crowd cheers for the HERO of Qal'a! 🎉");
+    burst(523,.12,"triangle",.12); burst(659,.14,"triangle",.12);
+    setTimeout(()=>burst(784,.22,"triangle",.13), 130);
+  }
+
+  // drifting clouds
+  clouds.children.forEach(c=>{ c.position.x += dt*0.8; if (c.position.x > SX+12) c.position.x = -12; });
+
+  // HUD
+  if (nameTimer > 0){ nameTimer -= dt; if (nameTimer<=0) nameEl.style.opacity = 0; }
+  const hrs = Math.floor((dayT*24+6)%24), mins = Math.floor(((dayT*24+6)%1)*60);
+  topbar.innerHTML = `<b>QAL'A</b> · ${["☮ Peaceful","✏ Creative","⚔ "+DIFF[difficulty].name][gameMode]} · `
+    + `${String(hrs).padStart(2,"0")}:${String(mins).padStart(2,"0")} · `
+    + `XYZ ${player.pos.x.toFixed(0)} ${player.pos.y.toFixed(0)} ${player.pos.z.toFixed(0)}`
+    + (player.fly ? " · ✈ flying" : "") + (player.inWater ? " · ~ swimming" : "");
+
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
